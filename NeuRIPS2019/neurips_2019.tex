@@ -12,7 +12,7 @@
 %     \usepackage[preprint]{neurips_2019}
 
 % to compile a camera-ready version, add the [final] option, e.g.:
-\usepackage[nonatbib]{neurips_2019}
+\usepackage[nonatbib, final]{neurips_2019}
 
 % to avoid loading the natbib package, add option nonatbib:
 %     \usepackage[nonatbib]{neurips_2019}
@@ -97,20 +97,33 @@ Two different models are trained, and both are evaluated on the Mean Squared Err
 
 We perform a grid search to tune hyperparameters. In the case of the ridge regression model, the only hyperparameter is \(\lambda \in \{0.125, 0.25, 0.5, 1, 2\} \), the weight of the parameter magnitude penalty. In the case of the neural model, the hyperparameters are the hidden dimension \(h \in \{0.5d, 1.0d\} \), what sigmoid activation function \(\sigma \in \{\texttt{ReLU}, \texttt{PReLU}\} \) is used, the number of epochs \(n_e \in \{3, 4, 5, 6\}\), the initial learning rate \(r \in \{0.01, 0.005, 0.003, 0.001\}\), whether the learning rate is lowered over the course of the epochs linearly or according to a cosine schedule \citep{cosine}, and whether Stochastic Gradient Descent is used or Adam \citep{adam}. 
 
-Every combination of hyperparameters is taken, used to build models with the \texttt{FEDA} and \texttt{FEDACROSS} domain adaptation methods (see below) for every target domain, and the set of hyperparameters which produces the lowest average MSE over each domain and method is selected. Thus we obtain \(\lambda = 0.125, h = 1.0d, \sigma = \texttt{PReLU}, n_e = 6, r = 0.003\) and optimize the neural model with a cosine annealing schedule and the Adam algorithm. The optimization algorithm, learning schedule, activation function, and hidden dimension \(h\) chosen were all clearly better than the alternative considered. In \ref{hypers} we show the sensitivity of the neural model to learning schedule hyperparameters \(r\) and \(n_e\).
+Every combination of hyperparameters is taken, used to build models with the \texttt{FEDA} and \texttt{FEDACROSS} domain adaptation methods (see below) for every target domain, and the set of hyperparameters which produces the lowest average MSE over each domain and method is selected. Thus we obtain \(\lambda = 0.125, h = 1.0d, \sigma = \texttt{PReLU}, n_e = 6, r = 0.003\) and optimize the neural model with a cosine annealing schedule and the Adam algorithm. In Figure 1 we show the sensitivity of the neural model to hyperparameters \(r\) and \(n_e\). % The optimization algorithm, learning schedule, activation function, and hidden dimension \(h\) chosen were all clearly better than the alternative considered
 
 \begin{figure}[h]
+\centering{}
+\label{fig:hypers}
+\begin{tabular}{ |c||c|c|c| }
+\hline
+Initial learning rate \(r\) \textbackslash{} Number of epochs \(n_e\) & 4 & 5 & 6 \\
+\hline
+0.01 & 5.104 & 5.171 & 4.710 \\
+\hline
+0.005 & 4.837 & 4.718 & 4.679 \\
+\hline
+0.003 & 4.778 & 4.650 & 4.521 \\
+\hline
+0.001 & 4.822 & & \\
+\hline
+\end{tabular}
+\caption{Mean Squared Error for neural model.  Units are exam percentage score. Results are the sum of MSE for every domain using \texttt{FEDA} and \texttt{FEDACROSS} (total of 6 runs).}
 \end{figure}
 
 \subsubsection{Domain Adaptation Baselines}
 
 We test several baseline methods for domain adaptation. In \texttt{SRCONLY}, the model is trained only on the source domain. In \texttt{TGTONLY}, it is trained only on the target domain. In \texttt{ALL}, it is trained on both domains. In \texttt{WEIGHTED}, instances from the non-target domains are weighted differently during training to instances from the target domain. For \(\alpha \in \{0, 0.1, 0.2, ..., 1.0\} \), the target \texttt{train} and \texttt{validation} / \texttt{test} instances are combined, shuffled, and re-split to obtain new \texttt{train} and \texttt{validation} / \texttt{test} sets. The model is trained with the target instances weighted at 1.0 and the source instances weighted at \(\alpha\). This is repeated three times, and the average MSE is taken. The value of \(\alpha\) which yields the best average MSE is then used to train the final model. In \texttt{PRED}, a model is trained on the source domain, and then used to produce predictions of the response variable \(\hat{y}_i\) for each instance in the target domain. This is used as an additional feature for training and prediction on the final model, which is trained only on target domain instances. In \texttt{LININT}, the prediction \(\hat{y}_i\) is the weighted average of the \texttt{SRCONLY} model and \texttt{TGTONLY} model, \(\alpha \hat{y}_i^{(s)} + (1 - \alpha)\hat{y}_i^{(t)} \). The parameter \(\alpha\) chosen during development from \(\alpha \in \{0, 0.05, 0.1, ..., 1.0\} \) based on whichever results in the lowest MSE, and then fixed during testing.
 
-Finally, there is Frustratingly Easy Domain Adaptation (\texttt{FEDA}) \cite{daume}. In it, different transformations \(\Phi^s\) and \(\Phi^t\) \( : \mathbb{R}^d \rightarrow \mathbb{R}^{3d}\) are applied to the source and target domains respectively. For source data, \(\Phi^s(\vec{x}) = concat(\vec{x}, \vec{x}, \vec{0})\), and for target data, \(\Phi^t(\vec{x}) = concat(\vec{x}, \vec{0}, \vec{x})\). % This is a redundant formulation of \(\Phi^s(\vec{x}) = concat(\vec{x}, \vec{x})\), \(\Phi^t(\vec{x}) = concat(\vec{x}, \vec{0})\), which is easier to analyse.
-
-\subsubsection{Multiple Source Domains}
-
-\texttt{FEDA} can be generalized to numbers of domains greater than 2 with a separate transformation \(\Phi^i : \mathbb{R}^{d} \rightarrow \mathbb{R}^{d(z + 1)}\) for every domain \(i \in \{1, ..., z\}\) \citep{daume}. In our case, there are three domains, and at any time we consider one to be the target \(t\) and the others source domains \(a\) and \(b\), for which \(\Phi^a = concat(\vec{x}, \vec{x}, \vec{0}, \vec{0})\), \(\Phi^b = concat(\vec{x}, \vec{0}, \vec{x}, \vec{0})\), \(\Phi^t = concat(\vec{x}, \vec{0}, \vec{0}, \vec{x})\). We compare this approach, in which multiple source domains are treated differently, \texttt{FEDACROSS}, to \texttt{FEDA}, which, like all other experiments conducted, treats all non-target domains as a single domain.
+Finally, there is Frustratingly Easy Domain Adaptation (\texttt{FEDA}) \cite{daume}. In it, different transformations \(\Phi^s\) and \(\Phi^t\) \( : \mathbb{R}^d \rightarrow \mathbb{R}^{3d}\) are applied to the source and target domains respectively. For source data, \(\Phi^s(\vec{x}) = concat(\vec{x}, \vec{x}, \vec{0})\), and for target data, \(\Phi^t(\vec{x}) = concat(\vec{x}, \vec{0}, \vec{x})\). \texttt{FEDA} can be generalized to numbers of domains greater than 2 with a separate transformation \(\Phi^i : \mathbb{R}^{d} \rightarrow \mathbb{R}^{d(z + 1)}\) for every domain \(i \in \{1, ..., z\}\) \citep{daume}. In our case, there are three domains, and at any time we consider one to be the target \(t\) and the others source domains \(a\) and \(b\), for which \(\Phi^a = concat(\vec{x}, \vec{x}, \vec{0}, \vec{0})\), \(\Phi^b = concat(\vec{x}, \vec{0}, \vec{x}, \vec{0})\), \(\Phi^t = concat(\vec{x}, \vec{0}, \vec{0}, \vec{x})\). We compare this approach, in which multiple source domains are treated differently, \texttt{FEDACROSS}, to \texttt{FEDA}, which, like all other experiments conducted, treats all non-target domains as a single domain.
+% This is a redundant formulation of \(\Phi^s(\vec{x}) = concat(\vec{x}, \vec{x})\), \(\Phi^t(\vec{x}) = concat(\vec{x}, \vec{0})\), which is easier to analyse.
 
 \begin{figure}[h]
 \label{baselines}
@@ -121,32 +134,32 @@ Finally, there is Frustratingly Easy Domain Adaptation (\texttt{FEDA}) \cite{dau
  \multicolumn{2}{|c|}{Model} & \texttt{SRCONLY} & \texttt{TGTONLY} & \texttt{ALL} & \texttt{WEIGHTED} & \texttt{PRED} & \texttt{LININT} \\ 
  \hline
  \hline
- \multirow{3}{*}{Ridge} & Female & 0.1016 & 0.7927 & 1.010 & 0.7927 & 0.7927 & 0.7927 \\  
+ \multirow{3}{*}{Ridge} & Female & 1.160 & \textbf{0.7927} & 1.010 & \textbf{0.7927} & \textbf{0.7927} & \textbf{0.7927} \\  
  \cline{2-8}
-       & Male                    & 1.143 & 0.8026 & 1.135 & 0.8026 & 0.8026 & 0.8026 \\
+       & Male                    & 1.143 & \textbf{0.8026} & 1.135 & \textbf{0.8026} & \textbf{0.8026} & \textbf{0.8026} \\
  \cline{2-8}
-       & Mixed                    & 1.038      & 0.8206 & 1.032 & 0.9930 & 0.8206 & 0.8200 \\
+       & Mixed                    & 1.038      & 0.8206 & 1.032 & 0.9930 & 0.8206 & \textbf{0.8200} \\
  \hline
- \multirow{3}{*}{Neural} & Female & 1.014 & 0.9110 & 1.016 & 0.8144 & 0.8199 & 0.7427 \\
+ \multirow{3}{*}{Neural} & Female & 1.014 & 0.9110 & 1.016 & 0.8144 & 0.8199 & \textbf{0.7427} \\
  \cline{2-8}
-       & Male & 1.187 & 0.8716 & 1.158 & 0.8564 & 0.8319 & 0.8678 \\
+       & Male & 1.187 & 0.8716 & 1.158 & 0.8564 & \textbf{0.8319} & 0.8678 \\
  \cline{2-8}
-       & Mixed                    & 1.024 & 0.9280 & 1.049 & 0.9304 & 0.8378 & 0.7958 \\
+       & Mixed                    & 1.024 & 0.9280 & 1.049 & 0.9304 & 0.8378 & \textbf{0.7958} \\
  \hline
 \end{tabular}
 \end{center}
-\caption{Mean Squared Error for different models and domain adaptation methods. Units are exam percentage score. Results are averaged over three runs.}
+\caption{Mean Squared Error for different models and domain adaptation methods. Units are exam percentage score. Results are averaged over three runs. The best result for a domain is marked \textbf{bold}.}
 \end{figure}
 
 \subsection{Flexible Domain Adaptation}
 
 We implement another technique for domain adaptation: Flexible Domain Adaptation (\texttt{FDA}) \citep{easiest}. The authors generalize \texttt{FEDA} \citep{daume}. They start by considering Bayesian ridge regression, modelling the predictor for a target datapoint as \(f^t(\vec{x_i}) = \vec{x_i} \cdot \vec{w}^t\), and for a source datapoint as \(f^s(\vec{x_i}) = \rho \vec{x_i} \cdot \vec{w}^t + (1 - \rho^2)^{1/2}\vec{x_i} \cdot \vec{w}^s\). This corresponds to data transformations \(\Phi^s(\vec{x}) = concat(\vec{x}, \vec{0}) \) and \(\Phi^t(\vec{x}) = concat(\rho\vec{x}, (1 - \rho^2)^{1/2}\vec{x})\). They claim that the \texttt{FEDA} method, which they call ``EasyAdapt'', is a special case of this transformation where \(\rho = 0.5\). It is not immediately obvious why, so we will attempt to explain here.
 
-Assuming that components of the weight vectors \(\vec{w}^s\) and \(\vec{w}^t\) are drawn from a zero-centered normal distribution whose variance is \(\lambda^{-1}\), then it can be shown that the correlation between the ``latent scoring functions'' for the target and source tasks is \(\rho\), i.e. \(\mathbb{E}[f^t(\vec{x})f^s(\vec{x'})] = \lambda^{-1}\rho \vec{x} \cdot \vec{x'}\). The authors do not explicitly contrast this with the case that \(\vec{x}\) and \(\vec{x'}\) are in the same domain, in which case according to our calculations \(\mathbb{E}[f^t(\vec{x})f^t(\vec{x'})] = \lambda^{-1} \vec{x} \cdot \vec{x'}\) for the target domain and \(\mathbb{E}[f^s(\vec{x})f^s(\vec{x'})] = \lambda^{-1}\rho^2 + \lambda^{-1} (1 - \rho^2)\vec{x} \cdot \vec{x'} = \lambda^{-1}\vec{x}\cdot\vec{x'}\) for the source domain. Likewise, they cite a specific equation in the \texttt{FEDA} paper which shows that the kernel function \(\check{\mathcal{K}}(\vec{x}, \vec{x'})\) for the transformed feature space is equal to twice the original kernel function, i.e. \(2 \times \mathcal{K}(\vec{x}, \vec{x'}\)) when \(\vec{x}\) and \(\vec{x'}\) are in the same domain and equal to the original kernel function \(\mathcal{K}(\vec{x}, \vec{x'})\) when they are in different domains \cite{easiest} \cite{daume}. If \(\rho = 0.5\), then \texttt{FDA} also gives two vectors \(\vec{x}\) and \(\vec{x'}\) a score 2 times higher if they are in the same domain. The value of \(\rho\) can thus be adjusted based on how similar the domains are. The authors derive a loss function for an MLE estimation of \(\rho\) for the Bayesian ridge regression case. They compare the MLE-\(\rho\) to setting \(\rho\) to 0, 0.5 and 1.0. We set \(\rho\) to 0.5 and 0.75 and find that in both cases this slightly underperforms \texttt{FEDA}.
+Assuming that components of the weight vectors \(\vec{w}^s\) and \(\vec{w}^t\) are drawn from a zero-centered normal distribution whose variance is \(\lambda^{-1}\), then it can be shown that the correlation between the ``latent scoring functions'' for the target and source tasks is \(\rho\), i.e. \(\mathbb{E}[f^t(\vec{x})f^s(\vec{x'})] = \lambda^{-1}\rho \vec{x} \cdot \vec{x'}\). The authors do not explicitly contrast this with the case that \(\vec{x}\) and \(\vec{x'}\) are in the same domain, in which case according to our calculations \(\mathbb{E}[f^t(\vec{x})f^t(\vec{x'})] = \lambda^{-1} \vec{x} \cdot \vec{x'}\) for the target domain and \(\mathbb{E}[f^s(\vec{x})f^s(\vec{x'})] = \lambda^{-1}\rho^2 + \lambda^{-1} (1 - \rho^2)\vec{x} \cdot \vec{x'} = \lambda^{-1}\vec{x}\cdot\vec{x'}\) for the source domain. Likewise, they cite a specific equation in the \texttt{FEDA} paper which shows that the kernel function \(\check{\mathcal{K}}(\vec{x}, \vec{x'})\) for the transformed feature space is equal to twice the original kernel function, i.e. \(2 \times \mathcal{K}(\vec{x}, \vec{x'}\)) when \(\vec{x}\) and \(\vec{x'}\) are in the same domain and equal to the original kernel function \(\mathcal{K}(\vec{x}, \vec{x'})\) when they are in different domains \cite{easiest} \cite{daume}. If \(\rho = 0.5\), then \texttt{FDA} also gives two vectors \(\vec{x}\) and \(\vec{x'}\) a score 2 times higher if they are in the same domain. The value of \(\rho\) can thus be adjusted based on how similar the domains are. The authors derive a loss function for an MLE estimation of \(\rho\) for the Bayesian ridge regression case. They compare the MLE-\(\rho\) to setting \(\rho\) to 0, 0.5 and 1.0. We set \(\rho\) to 0.5 and 0.75,  and find that they perform very similarly to \texttt{FEDA}. Setting \(\rho\) to 0 models non-correlation between different domains (other than shared model priors) and setting it to 1 models a correlation of 1. We rule out both zero and maximum correlation based on the observed differences in domains evinced by the baseline model results.
 
 \subsection{Transfer Component Analysis}
 
-The final domain adaptation which we consider is Transfer Component Analysis (\texttt{TCA}) \citep{tca}. TCA is based on Principal Component Analysis (PCA). In PCA, the goal is to find an orthogonal linear transformation from the data's feature space into a different orthogonal basis, such that the empirical covariance between the transformed data's features is maximised. We here use notation more similar to \cite{jda} in their explanation of \texttt{TCA}. Where \(\mathbf{X}^{d \times n}\) is the matrix containing the \(n\) input data instances of \(d\) features each, then the covariance matrix can be computed as \(\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\). The matrix \(\mathbf{H}^{n \times n} = \mathbf{I} - \frac{1}{n}\mathbf{1}\) is a \textit{centering matrix} which transforms features so that their empirical mean is 0. In PCA, the goal is to find the matrix \(\mathbf{A}\), such that \(\mathbf{A}^{\top}\mathbf{A} = \mathbf{I}\), which maximizes the trace \( tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\mathbf{A}) \). In contrast, \texttt{TCA} introduces an additional goal, which is to minimise the \textit{Maximum Mean Discrepancy} (MMD). The MMD is a statistic of two distributions equal to the squared distance between the empirical means (in \(d\)-dimensional space): \(MMD = \left\| \frac{1}{n_s} \sum_{i=1}^{n_s}\mathbf{A}^{\top}\vec{x_i} - \frac{1}{n_t}\sum_{j=1}^{n_t}\mathbf{A}^{\top}\vec{x_j}\right\|^2 \), where \(n_s\) is the number of source instances and \(n_t\) is the number of target instances. This distance can be expressed in terms of a specially constructed matrix \(\mathbf{M}_0\) such that \(MMD = tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top}\mathbf{A})\) \citep{jda}. The objective of the \textit{unsupervised variant} of \texttt{TCA} is to minimise \(tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top}\mathbf{A}) + \lambda \left\| \mathbf{A} \right\|^2 \) such that \(\mathbf{A}^{\top}\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\mathbf{A} = \mathbf{I} \). Thus instances in the source and target domains are brought closer together in the transformed space. Here \(\lambda\) is the regularization parameter and the norm of a matrix is the root of the elementwise sum of squares. The solution to this can be derived by eigendecomposing \((\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top} + \lambda\mathbf{I})^{-1} + \mathbf{X}\mathbf{H}\mathbf{X}^{\top}\), for which the matrix of eigenvectors will be the solution \(\mathbf{A}\) \cite{tca} \cite{jda}. We find that on our task \texttt{TCA} performs almost identically to the \texttt{ALL} variant, i.e. no benefit whatsoever is derived from the transformation.
+The final domain adaptation which we consider is Transfer Component Analysis (\texttt{TCA}) \citep{tca}. TCA is based on Principal Component Analysis (PCA). In PCA, the goal is to find an orthogonal linear transformation from the data's feature space into a different orthogonal basis, such that the empirical covariance between the transformed data's features is maximised. We here use notation more similar to \cite{jda} in their explanation of \texttt{TCA}. Where \(\mathbf{X}^{d \times n}\) is the matrix containing the \(n\) input data instances of \(d\) features each, then the covariance matrix can be computed as \(\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\). The matrix \(\mathbf{H}^{n \times n} = \mathbf{I} - \frac{1}{n}\mathbf{1}\) is a \textit{centering matrix} which transforms features so that their empirical mean is 0. In PCA, the goal is to find the matrix \(\mathbf{A}\), such that \(\mathbf{A}^{\top}\mathbf{A} = \mathbf{I}\), which maximizes the trace \( tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\mathbf{A}) \). In contrast, \texttt{TCA} introduces an additional goal, which is to minimise the \textit{Maximum Mean Discrepancy} (MMD). The MMD is a statistic of two distributions equal to the squared distance between the empirical means (in \(d\)-dimensional space): \(MMD = \left\| \frac{1}{n_s} \sum_{i=1}^{n_s}\mathbf{A}^{\top}\vec{x_i} - \frac{1}{n_t}\sum_{j=1}^{n_t}\mathbf{A}^{\top}\vec{x_j}\right\|^2 \), where \(n_s\) is the number of source instances and \(n_t\) is the number of target instances. This distance can be expressed in terms of a specially constructed matrix \(\mathbf{M}_0\) such that \(MMD = tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top}\mathbf{A})\) \citep{jda}. The objective of the \textit{unsupervised variant} of \texttt{TCA} is to minimise \(tr(\mathbf{A}^{\top}\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top}\mathbf{A}) + \lambda \left\| \mathbf{A} \right\|^2 \) such that \(\mathbf{A}^{\top}\mathbf{X}\mathbf{H}\mathbf{X}^{\top}\mathbf{A} = \mathbf{I} \). Thus instances in the source and target domains are brought closer together in the transformed space. Here \(\lambda\) is the regularization parameter and the norm of a matrix is the root of the elementwise sum of squares. The solution to this can be derived by eigendecomposing \((\mathbf{X}\mathbf{M_0}\mathbf{X}^{\top} + \lambda\mathbf{I})^{-1} + \mathbf{X}\mathbf{H}\mathbf{X}^{\top}\), for which the matrix of eigenvectors will be the solution \(\mathbf{A}\) \cite{tca} \cite{jda}. We find that on our task \texttt{TCA} performs almost identically to the \texttt{ALL} variant, i.e. no benefit whatsoever is derived from the transformation. From this we infer that the domains vary more with respect to the \textit{relationship} between features and the response variable than they do with respect to the distribution of the features.
 
 \begin{figure}[h]
 \label{baselines}
@@ -157,17 +170,17 @@ The final domain adaptation which we consider is Transfer Component Analysis (\t
  \multicolumn{2}{|c|}{Model} & \texttt{FEDA} & \texttt{FEDACROSS} & \texttt{FDA}(\(\rho=0.5\)) & \texttt{FDA}(\(\rho=0.75\)) & \texttt{TCA} \\ 
  \hline
  \hline
- \multirow{3}{*}{Ridge} & Female & cell5 & cell6 & & & \\  
+ \multirow{3}{*}{Ridge} & Female & 0.7924 & 0.7925 & 0.7931 & 0.7942 & 1.010  \\  
  \cline{2-7}
-       & Male                    &          & & & & \\
+       & Male                    & 0.8021 & 0.8022 & 0.8024 & 0.8027 & 1.134 \\
  \cline{2-7}
-       & Mixed                    &          & & & & \\
+       & Mixed                    & 0.8197 & 0.8200 & 0.8211 & 0.8230 & 1.032 \\
  \hline
- \multirow{3}{*}{Neural} & Female & & & & & \\
+ \multirow{3}{*}{Neural} & Female & 0.7616 & 0.7354 & 0.8487 & 0.8755 & 1.034 \\
  \cline{2-7}
-       & Male & & & & & \\
+       & Male & 0.7605 & 0.7600 & 0.8140 & 0.8609 & 1.163\\
  \cline{2-7}
-       & Mixed & & & & & \\
+       & Mixed & 0.7508 & 0.7754 & 0.8630 & 0.9101 & 1.045 \\
  \hline
 \end{tabular}
 \end{center}
